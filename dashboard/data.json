@@ -1,21 +1,288 @@
 {
   "stats": {
-    "total_tables": 0,
-    "formula_count": 0,
+    "total_tables": 9,
+    "formula_count": 38,
     "last_sync_records": 1250,
-    "last_sync_date": "2025-10-31T18:34:53.103570",
+    "last_sync_date": "2025-10-31T18:40:15.084750",
     "sync_status": "success",
-    "last_updated": "2025-10-31T18:34:53.103576"
+    "last_updated": "2025-10-31T18:40:15.084761"
   },
-  "formulas": [],
+  "formulas": [
+    {
+      "table": "Reservations",
+      "field": "UniqueResID",
+      "type": "boolean_formula",
+      "pattern": "Boolean calculation",
+      "sample": "True"
+    },
+    {
+      "table": "Reservations",
+      "field": "Nights",
+      "type": "date_diff",
+      "pattern": "DATETIME_DIFF calculation",
+      "sample": "2"
+    },
+    {
+      "table": "Reservations",
+      "field": "Number of Rooms",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "1"
+    },
+    {
+      "table": "Reservations",
+      "field": "HST Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "Room Revenue Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "Other Revenue Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "DBTotal",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "494.94"
+    },
+    {
+      "table": "Reservations",
+      "field": "CRTotal",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "494.94000000000005"
+    },
+    {
+      "table": "Reservations",
+      "field": "Balanced",
+      "type": "boolean_formula",
+      "pattern": "Boolean calculation",
+      "sample": "True"
+    },
+    {
+      "table": "Reservations",
+      "field": "AccountLink Count",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "Adjust (Room Revenue)",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "Adjust (Other Revenue)",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "MAT Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservations",
+      "field": "SyncTime Count",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Transactions",
+      "field": "QTY",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "1"
+    },
+    {
+      "table": "Categories",
+      "field": "Category",
+      "type": "concatenation",
+      "pattern": "String concatenation",
+      "sample": "Room rate - Room 3: King Room ((genius) Standard Rate - Mobile(App) Rate)"
+    },
+    {
+      "table": "Categories",
+      "field": "Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Categories",
+      "field": "Count",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Properties",
+      "field": "ReservationCount",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "989"
+    },
+    {
+      "table": "Account Sync",
+      "field": "Name & Number",
+      "type": "concatenation",
+      "pattern": "String concatenation",
+      "sample": "2180 - EI Payable"
+    },
+    {
+      "table": "Account Sync",
+      "field": "AccountID",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "53"
+    },
+    {
+      "table": "Account Sync",
+      "field": "CountCategory",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Account Sync",
+      "field": "Active",
+      "type": "boolean_formula",
+      "pattern": "Boolean calculation",
+      "sample": "True"
+    },
+    {
+      "table": "Account Sync",
+      "field": "Account Number",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "2180"
+    },
+    {
+      "table": "Class Sync",
+      "field": "Active",
+      "type": "boolean_formula",
+      "pattern": "Boolean calculation",
+      "sample": "True"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Reservation Number",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "5681574506421"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Hotel Collect Booking",
+      "type": "boolean_formula",
+      "pattern": "Boolean calculation",
+      "sample": "True"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Room Count",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "1"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Guest Count",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "3"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Reservation Paid Amount",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "266.56"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Room Revenue Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "307.36"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Total Reservation Taxes",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "None"
+    },
+    {
+      "table": "Reservation Reports",
+      "field": "Grand Total",
+      "type": "rollup_sum",
+      "pattern": "SUM/AVG of linked records",
+      "sample": "266.56"
+    },
+    {
+      "table": "CloudbedsProperties",
+      "field": "total_res",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "2485"
+    },
+    {
+      "table": "CloudbedsProperties",
+      "field": "total_res_sync",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "2482"
+    },
+    {
+      "table": "CloudbedsProperties",
+      "field": "total_pg_sync",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "29"
+    },
+    {
+      "table": "SyncLog",
+      "field": "total_pgs",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "17"
+    },
+    {
+      "table": "SyncLog",
+      "field": "total_res_year",
+      "type": "rollup_count",
+      "pattern": "COUNT of linked records",
+      "sample": "580"
+    }
+  ],
   "sync_history": [
     {
-      "date": "2025-10-31T18:34:53.103570",
+      "date": "2025-10-31T18:40:15.084750",
       "records": 1250,
       "mode": "incremental",
       "status": "success"
     }
   ],
   "schema_changes": [],
-  "last_updated": "2025-10-31T18:34:53.103578"
+  "last_updated": "2025-10-31T18:40:15.084763"
 }
