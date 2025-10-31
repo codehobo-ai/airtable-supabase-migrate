@@ -142,7 +142,11 @@ jobs:
       - name: Save Schema for Comparison
         if: success()
         run: |
-          cp airtable_schema.json previous_schema.json
+          if [ -f "airtable_schema.json" ]; then
+            cp airtable_schema.json previous_schema.json
+          else
+            echo "No schema file to save"
+          fi
 
       - name: Upload Previous Schema
         if: success()
