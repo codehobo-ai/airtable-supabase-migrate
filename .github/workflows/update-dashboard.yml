@@ -1,0 +1,57 @@
+name: Update Dashboard Data
+
+on:
+  # Run after audit completes
+  workflow_run:
+    workflows: ["Airtable Schema Audit"]
+    types:
+      - completed
+
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
+      - name: Download Latest Audit Data
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: airtable-audit.yml
+          name_is_regexp: true
+          name: 'airtable-audit-.*'
+          path: ./data/audit
+          if_no_artifact_found: warn
+
+      - name: Generate Dashboard Data JSON
+        run: |
+          python3 scripts/export_dashboard_data.py \
+            --output ./dashboard/data.json
+
+      - name: Commit and Push Updated Data
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          git add dashboard/data.json
+          git commit -m "Update dashboard data - $(date '+%Y-%m-%d %H:%M')" || echo "No changes to commit"
+          git push
+
+      - name: Trigger Netlify Deploy
+        run: |
+          echo "✅ Dashboard data updated"
+          echo "Netlify will auto-deploy in ~30 seconds"
