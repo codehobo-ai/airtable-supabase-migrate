@@ -87,9 +87,7 @@ jobs:
           AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
           AIRTABLE_BASE_ID: ${{ steps.config.outputs.base_id }}
         run: |
-          python3 scripts/list_tables.py <<EOF
-1
-EOF
+          echo "1" | python3 scripts/list_tables.py
 
       - name: Compare with Previous Schema
         if: github.event.inputs.action == 'compare_changes' || github.event_name == 'schedule'
