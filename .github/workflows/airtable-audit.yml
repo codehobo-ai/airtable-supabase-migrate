@@ -1,0 +1,231 @@
+name: Airtable Schema Audit
+
+on:
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - audit_formulas
+          - list_tables
+          - full_schema
+          - compare_changes
+
+      base_id:
+        description: 'Airtable Base ID (optional, uses default if empty)'
+        required: false
+        type: string
+
+      notify_email:
+        description: 'Send results to email?'
+        required: false
+        type: boolean
+        default: false
+
+  # Scheduled audit (weekly on Mondays at 9 AM)
+  schedule:
+    - cron: '0 9 * * 1'
+
+  # Run on push to track schema changes
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/airtable-audit.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
+      - name: Set Base ID
+        id: config
+        run: |
+          if [ -n "${{ github.event.inputs.base_id }}" ]; then
+            echo "base_id=${{ github.event.inputs.base_id }}" >> $GITHUB_OUTPUT
+          else
+            echo "base_id=${{ secrets.AIRTABLE_BASE_ID }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: List Tables
+        if: github.event.inputs.action == 'list_tables' || github.event.inputs.action == ''
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ steps.config.outputs.base_id }}
+        run: |
+          python3 scripts/list_tables.py > table_list.txt
+          cat table_list.txt
+
+      - name: Audit Formulas
+        if: github.event.inputs.action == 'audit_formulas' || github.event.inputs.action == '' || github.event_name == 'schedule'
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ steps.config.outputs.base_id }}
+        run: |
+          python3 scripts/audit_formulas.py | tee audit_output.txt
+
+      - name: Generate Full Schema
+        if: github.event.inputs.action == 'full_schema'
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ steps.config.outputs.base_id }}
+        run: |
+          python3 scripts/list_tables.py <<EOF
+1
+EOF
+
+      - name: Compare with Previous Schema
+        if: github.event.inputs.action == 'compare_changes' || github.event_name == 'schedule'
+        run: |
+          # Download previous schema from artifacts
+          if [ -f "previous_schema.json" ]; then
+            python3 scripts/compare_schemas.py previous_schema.json airtable_schema.json > schema_changes.txt
+            cat schema_changes.txt
+          else
+            echo "No previous schema found - this is the baseline"
+          fi
+
+      - name: Create Summary
+        if: always()
+        run: |
+          echo "# Airtable Audit Summary" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Base ID:** ${{ steps.config.outputs.base_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Action:** ${{ github.event.inputs.action || 'scheduled audit' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f "conversion_plan.txt" ]; then
+            echo "## Formula Conversion Plan" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -50 conversion_plan.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "schema_changes.txt" ]; then
+            echo "## Schema Changes Detected" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat schema_changes.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airtable-audit-${{ github.run_number }}
+          path: |
+            airtable_formulas.json
+            airtable_schema.json
+            conversion_plan.txt
+            formula_conversion.sql
+            audit_output.txt
+            table_list.txt
+            schema_changes.txt
+          retention-days: 90
+
+      - name: Save Schema for Comparison
+        if: success()
+        run: |
+          cp airtable_schema.json previous_schema.json
+
+      - name: Upload Previous Schema
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: previous-schema
+          path: previous_schema.json
+          retention-days: 365
+
+      - name: Send Email Notification
+        if: github.event.inputs.notify_email == 'true' || github.event_name == 'schedule'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: '📊 Airtable Audit Report - ${{ github.run_number }}'
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Airtable Audit Bot
+          body: |
+            Airtable schema audit completed.
+
+            Run: ${{ github.run_number }}
+            Date: $(date)
+            Base: ${{ steps.config.outputs.base_id }}
+
+            View results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Download artifacts to see:
+            - Formula conversion plan
+            - Full schema JSON
+            - SQL conversion templates
+          attachments: |
+            conversion_plan.txt
+            formula_conversion.sql
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 📊 Airtable Schema Audit\n\n';
+
+            if (fs.existsSync('conversion_plan.txt')) {
+              const plan = fs.readFileSync('conversion_plan.txt', 'utf8');
+              comment += '### Formula Conversion Plan\n\n';
+              comment += '```\n' + plan.substring(0, 2000) + '\n```\n';
+            }
+
+            if (fs.existsSync('schema_changes.txt')) {
+              const changes = fs.readFileSync('schema_changes.txt', 'utf8');
+              comment += '### Schema Changes Detected\n\n';
+              comment += '```\n' + changes + '\n```\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Create Issue on Schema Change
+        if: github.event_name == 'schedule' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            if (fs.existsSync('schema_changes.txt')) {
+              const changes = fs.readFileSync('schema_changes.txt', 'utf8');
+
+              if (changes.length > 0) {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `⚠️ Airtable Schema Changes Detected - ${new Date().toISOString().split('T')[0]}`,
+                  body: `Automated schema audit detected changes in your Airtable base.\n\n### Changes:\n\`\`\`\n${changes}\n\`\`\`\n\n**Action Required:**\n- Review the changes\n- Update migration scripts if needed\n- Update Supabase schema to match\n\nView full audit: ${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+                  labels: ['airtable', 'schema-change', 'automated']
+                });
+              }
+            }

@@ -1,0 +1,101 @@
+name: Deploy Dashboard to Netlify
+
+on:
+  # Run after audit/sync completes
+  workflow_run:
+    workflows: ["Airtable Schema Audit", "Airtable to Supabase Sync"]
+    types:
+      - completed
+
+  # Manual trigger
+  workflow_dispatch:
+
+  # Scheduled
+  schedule:
+    - cron: '0 10 * * *'  # Daily at 10 AM
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
+      - name: Download Latest Audit Data
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: airtable-audit.yml
+          name: airtable-audit-*
+          path: ./data/audit
+          if_no_artifact_found: warn
+
+      - name: Download Latest Sync Data
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: airtable-sync.yml
+          name: migration-logs-*
+          path: ./data/sync
+          if_no_artifact_found: warn
+
+      - name: Generate Dashboard HTML
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/generate_dashboard.py \
+            --audit-data ./data/audit \
+            --sync-data ./data/sync \
+            --output ./netlify-dashboard
+
+      - name: Generate Dashboard Data JSON
+        run: |
+          # Create a JSON file that Netlify can consume
+          python3 scripts/export_dashboard_data.py \
+            --output ./netlify-dashboard/data.json
+
+      - name: Checkout Netlify Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.NETLIFY_REPO }}  # e.g., megaboss/your-netlify-site
+          token: ${{ secrets.NETLIFY_DEPLOY_TOKEN }}
+          path: netlify-site
+
+      - name: Copy Dashboard Files
+        run: |
+          # Copy to dashboard directory in Netlify repo
+          mkdir -p netlify-site/dashboard
+          cp -r netlify-dashboard/* netlify-site/dashboard/
+
+          # Also copy data JSON for API access
+          mkdir -p netlify-site/public/api
+          cp netlify-dashboard/data.json netlify-site/public/api/dashboard.json
+
+      - name: Commit and Push to Netlify Repo
+        working-directory: netlify-site
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          git add dashboard/ public/api/
+          git commit -m "Update dashboard - $(date)" || echo "No changes to commit"
+          git push
+
+      - name: Trigger Netlify Deploy
+        run: |
+          curl -X POST -d '{}' ${{ secrets.NETLIFY_BUILD_HOOK }}
+
+      - name: Send Notification
+        if: success()
+        run: |
+          echo "✅ Dashboard deployed to Netlify"
+          echo "URL: ${{ secrets.NETLIFY_SITE_URL }}/dashboard"

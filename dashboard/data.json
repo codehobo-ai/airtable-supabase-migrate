@@ -1,0 +1,14 @@
+{
+  "stats": {
+    "total_tables": 0,
+    "formula_count": 0,
+    "last_sync_records": 0,
+    "last_sync_date": "Not yet run",
+    "sync_status": "pending"
+  },
+  "formulas": [],
+  "sync_history": [],
+  "schema_changes": [],
+  "last_updated": "2025-10-31T00:00:00.000Z",
+  "message": "Run GitHub Actions workflows to populate this data"
+}

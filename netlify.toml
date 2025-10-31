@@ -1,0 +1,22 @@
+# Netlify configuration
+
+[build]
+  # No build command needed for static site
+  publish = "."
+
+# Redirect rules
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/dashboard"
+  to = "/dashboard/data.json"
+  status = 200
+
+# SPA fallback (if you need it for your form)
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200

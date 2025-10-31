@@ -1,0 +1,202 @@
+name: Airtable to Supabase Sync
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Sync mode'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test         # Test with 10 records
+          - preview      # Dry run with 100 records
+          - incremental  # Sync only new/changed records
+          - full         # Full migration (use carefully!)
+
+      tables:
+        description: 'Tables to sync (comma-separated, empty for all)'
+        required: false
+        type: string
+
+      notify:
+        description: 'Send notification when complete?'
+        required: false
+        type: boolean
+        default: true
+
+  # Scheduled incremental sync (daily at 2 AM)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Trigger from another workflow
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: 'incremental'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
+      - name: Determine Sync Mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "mode=incremental" >> $GITHUB_OUTPUT
+          else
+            echo "mode=${{ github.event.inputs.mode || 'test' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Pre-flight Checks
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "Running pre-flight checks..."
+          python3 scripts/test_migration.py --test connections
+
+      - name: Backup Supabase Data
+        if: steps.mode.outputs.mode == 'full'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "Creating backup..."
+          python3 scripts/backup_supabase.py
+
+      - name: Run Migration
+        id: migrate
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SYNC_MODE: ${{ steps.mode.outputs.mode }}
+          TABLES: ${{ github.event.inputs.tables }}
+        run: |
+          python3 scripts/migrate.py \
+            --mode $SYNC_MODE \
+            --tables "$TABLES" \
+            --log migration.log \
+            | tee migration_output.txt
+
+      - name: Verify Migration
+        if: steps.mode.outputs.mode != 'test'
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python3 scripts/verify_migration.py > verification_report.txt
+          cat verification_report.txt
+
+      - name: Parse Results
+        id: results
+        run: |
+          # Extract stats from migration output
+          RECORDS_SYNCED=$(grep -oP 'Inserted \K\d+' migration_output.txt | tail -1 || echo "0")
+          ERRORS=$(grep -c "❌" migration_output.txt || echo "0")
+
+          echo "records_synced=$RECORDS_SYNCED" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+      - name: Create Summary
+        if: always()
+        run: |
+          echo "# 🔄 Airtable → Supabase Sync" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mode:** ${{ steps.mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Duration:** ${{ job.duration }} seconds" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Records Synced: ${{ steps.results.outputs.records_synced }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Errors: ${{ steps.results.outputs.errors }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f "verification_report.txt" ]; then
+            echo "## Verification" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat verification_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-logs-${{ github.run_number }}
+          path: |
+            migration.log
+            migration_output.txt
+            verification_report.txt
+            backup_*.json
+          retention-days: 30
+
+      - name: Send Success Notification
+        if: success() && (github.event.inputs.notify == 'true' || github.event_name == 'schedule')
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: '✅ Airtable Sync Completed - ${{ steps.results.outputs.records_synced }} records'
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Airtable Sync Bot
+          body: |
+            Sync completed successfully!
+
+            Mode: ${{ steps.mode.outputs.mode }}
+            Records synced: ${{ steps.results.outputs.records_synced }}
+            Errors: ${{ steps.results.outputs.errors }}
+
+            View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Send Failure Notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: '❌ Airtable Sync FAILED'
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Airtable Sync Bot
+          body: |
+            ⚠️ Sync failed!
+
+            Mode: ${{ steps.mode.outputs.mode }}
+
+            Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          attachments: migration.log
+
+      - name: Rollback on Failure
+        if: failure() && steps.mode.outputs.mode == 'full'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "🔄 Rolling back..."
+          python3 scripts/rollback.py --backup backup_*.json
