@@ -11,22 +11,36 @@ from datetime import datetime
 def export_data(output_file):
     """Export dashboard data to JSON"""
 
-    # Load audit data
+    # Load audit data - search in subdirectories
     formulas = []
-    try:
-        with open('./data/audit/airtable_formulas.json') as f:
-            data = json.load(f)
+    audit_file = None
 
-            for table_name, fields in data.items():
-                for field_name, field_info in fields.items():
-                    formulas.append({
-                        'table': table_name,
-                        'field': field_name,
-                        'type': field_info.get('likely_type'),
-                        'pattern': field_info.get('pattern'),
-                        'sample': str(field_info.get('sample_value', ''))[:100]
-                    })
-    except FileNotFoundError:
+    # Find the audit data file (it's extracted into a subdirectory)
+    audit_dir = Path('./data/audit')
+    if audit_dir.exists():
+        # Look for airtable_formulas.json in subdirectories
+        for json_file in audit_dir.rglob('airtable_formulas.json'):
+            audit_file = json_file
+            break
+
+    if audit_file and audit_file.exists():
+        try:
+            with open(audit_file) as f:
+                data = json.load(f)
+
+                for table_name, fields in data.items():
+                    for field_name, field_info in fields.items():
+                        formulas.append({
+                            'table': table_name,
+                            'field': field_name,
+                            'type': field_info.get('likely_type'),
+                            'pattern': field_info.get('pattern'),
+                            'sample': str(field_info.get('sample_value', ''))[:100]
+                        })
+            print(f"✅ Loaded audit data from {audit_file}")
+        except Exception as e:
+            print(f"⚠️  Error loading audit data: {e}")
+    else:
         print("⚠️  No audit data found")
 
     # Load sync history
