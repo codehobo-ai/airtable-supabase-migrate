@@ -3,9 +3,9 @@
     "total_tables": 9,
     "formula_count": 38,
     "last_sync_records": 1250,
-    "last_sync_date": "2025-11-03T09:13:59.289585",
+    "last_sync_date": "2025-11-10T09:13:40.222019",
     "sync_status": "success",
-    "last_updated": "2025-11-03T09:13:59.289596"
+    "last_updated": "2025-11-10T09:13:40.222029"
   },
   "formulas": [
     {
@@ -277,12 +277,12 @@
   ],
   "sync_history": [
     {
-      "date": "2025-11-03T09:13:59.289585",
+      "date": "2025-11-10T09:13:40.222019",
       "records": 1250,
       "mode": "incremental",
       "status": "success"
     }
   ],
   "schema_changes": [],
-  "last_updated": "2025-11-03T09:13:59.289598"
+  "last_updated": "2025-11-10T09:13:40.222031"
 }
