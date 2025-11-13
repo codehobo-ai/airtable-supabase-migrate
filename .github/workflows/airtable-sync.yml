@@ -26,9 +26,9 @@ on:
         type: boolean
         default: true
 
-  # Scheduled incremental sync (daily at 2 AM)
-  schedule:
-    - cron: '0 2 * * *'
+  # Scheduled sync disabled - run on demand only
+  # schedule:
+  #   - cron: '0 2 * * *'
 
   # Trigger from another workflow
   workflow_call:
