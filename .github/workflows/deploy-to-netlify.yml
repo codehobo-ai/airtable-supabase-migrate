@@ -10,9 +10,9 @@ on:
   # Manual trigger
   workflow_dispatch:
 
-  # Scheduled
-  schedule:
-    - cron: '0 10 * * *'  # Daily at 10 AM
+  # Scheduled deployment disabled to prevent daily builds
+  # schedule:
+  #   - cron: '0 10 * * *'  # Daily at 10 AM
 
 jobs:
   deploy:
